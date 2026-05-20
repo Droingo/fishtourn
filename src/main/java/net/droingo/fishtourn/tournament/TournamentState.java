@@ -18,9 +18,10 @@ public class TournamentState extends PersistentState {
     private static final String STATE_ID = FishingTournament.MOD_ID + "_tournament";
 
     public boolean active = false;
+    public long endWorldTime = 0L;
+
     public final Map<UUID, TournamentEntry> bestEntries = new HashMap<>();
     public final Map<UUID, Integer> submissionCounts = new HashMap<>();
-    public long endWorldTime = 0L;
 
     private static final Type<TournamentState> TYPE = new Type<>(
             TournamentState::new,
@@ -35,17 +36,14 @@ public class TournamentState extends PersistentState {
             throw new IllegalStateException("Overworld is not available.");
         }
 
-        TournamentState state = overworld.getPersistentStateManager().getOrCreate(TYPE, STATE_ID);
-        state.markDirty();
-        return state;
+        return overworld.getPersistentStateManager().getOrCreate(TYPE, STATE_ID);
     }
 
     public static TournamentState fromNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registries) {
         TournamentState state = new TournamentState();
 
-        state.endWorldTime = nbt.getLong("EndWorldTime");
-
         state.active = nbt.getBoolean("Active");
+        state.endWorldTime = nbt.getLong("EndWorldTime");
 
         NbtList entriesList = nbt.getList("BestEntries", NbtElement.COMPOUND_TYPE);
 

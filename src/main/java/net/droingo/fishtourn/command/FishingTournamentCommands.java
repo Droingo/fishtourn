@@ -17,6 +17,7 @@ import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
+import net.droingo.fishtourn.item.ModItems;
 
 public final class FishingTournamentCommands {
     private FishingTournamentCommands() {
@@ -46,6 +47,10 @@ public final class FishingTournamentCommands {
                 .then(CommandManager.literal("give_submission_barrel")
                         .requires(source -> source.hasPermissionLevel(2))
                         .executes(context -> giveSubmissionBarrel(context.getSource()))
+                )
+                .then(CommandManager.literal("give_rod")
+                        .requires(source -> source.hasPermissionLevel(2))
+                        .executes(context -> giveTournamentRod(context.getSource()))
                 )
                 .then(CommandManager.literal("tournament")
                         .then(CommandManager.literal("start")
@@ -100,6 +105,28 @@ public final class FishingTournamentCommands {
                     false
             );
         }
+
+        return 1;
+    }
+    private static int giveTournamentRod(ServerCommandSource source) {
+        ServerPlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("This command must be run by a player."));
+            return 0;
+        }
+
+        ItemStack stack = new ItemStack(ModItems.TOURNAMENT_ROD);
+
+        boolean inserted = player.getInventory().insertStack(stack);
+        if (!inserted) {
+            player.dropItem(stack, false);
+        }
+
+        source.sendFeedback(
+                () -> Text.literal("Gave Tournament Rod."),
+                false
+        );
 
         return 1;
     }

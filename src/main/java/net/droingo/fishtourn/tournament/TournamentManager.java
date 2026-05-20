@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
-import net.minecraft.server.MinecraftServer;
 
 public final class TournamentManager {
     private TournamentManager() {
@@ -20,8 +19,6 @@ public final class TournamentManager {
     public static boolean isActive(MinecraftServer server) {
         return TournamentState.get(server).active;
     }
-
-
 
     public static int getSubmissionCount(MinecraftServer server) {
         return TournamentState.get(server).submissionCounts.values()
@@ -44,24 +41,38 @@ public final class TournamentManager {
 
     public static void start(MinecraftServer server) {
         start(server, 10);
+    }
+
+    public static void start(MinecraftServer server, int minutes) {
         TournamentState state = TournamentState.get(server);
 
+        long durationTicks = minutes * 60L * 20L;
+        long currentTime = server.getOverworld().getTime();
+
         state.active = true;
+        state.endWorldTime = currentTime + durationTicks;
         state.bestEntries.clear();
         state.submissionCounts.clear();
         state.markDirty();
 
         server.getPlayerManager().broadcast(
-                Text.literal("Fishing tournament started! Submit your best fish at the Tournament Submission Barrel.")
-                        .formatted(Formatting.AQUA),
+                Text.literal("Fishing tournament started! Time limit: " + minutes + " minutes.")
+                        .formatted(Formatting.AQUA, Formatting.BOLD),
+                false
+        );
+
+        server.getPlayerManager().broadcast(
+                Text.literal("Submit your best fish at the Tournament Submission Barrel before time runs out.")
+                        .formatted(Formatting.GRAY),
                 false
         );
     }
 
     public static void reset(MinecraftServer server) {
         TournamentState state = TournamentState.get(server);
-        state.endWorldTime = 0L;
+
         state.active = false;
+        state.endWorldTime = 0L;
         state.bestEntries.clear();
         state.submissionCounts.clear();
         state.markDirty();
@@ -71,26 +82,6 @@ public final class TournamentManager {
                         .formatted(Formatting.YELLOW),
                 false
         );
-    }
-    public static long getRemainingTicks(MinecraftServer server) {
-        TournamentState state = TournamentState.get(server);
-
-        if (!state.active || state.endWorldTime <= 0L) {
-            return 0L;
-        }
-
-        long currentTime = server.getOverworld().getTime();
-        return Math.max(0L, state.endWorldTime - currentTime);
-    }
-
-    public static String getRemainingTimeText(MinecraftServer server) {
-        long remainingTicks = getRemainingTicks(server);
-
-        long totalSeconds = remainingTicks / 20L;
-        long minutes = totalSeconds / 60L;
-        long seconds = totalSeconds % 60L;
-
-        return String.format(Locale.ROOT, "%d:%02d", minutes, seconds);
     }
 
     public static SubmissionResult submitFish(ServerPlayerEntity player, FishDataComponent fishData) {
@@ -121,7 +112,6 @@ public final class TournamentManager {
         );
 
         TournamentEntry oldEntry = state.bestEntries.get(uuid);
-
         boolean newPersonalBest = oldEntry == null || newEntry.score() > oldEntry.score();
 
         if (newPersonalBest) {
@@ -138,6 +128,47 @@ public final class TournamentManager {
                 .stream()
                 .sorted(Comparator.comparingInt(TournamentEntry::score).reversed())
                 .toList();
+    }
+
+    public static long getRemainingTicks(MinecraftServer server) {
+        TournamentState state = TournamentState.get(server);
+
+        if (!state.active || state.endWorldTime <= 0L) {
+            return 0L;
+        }
+
+        long currentTime = server.getOverworld().getTime();
+        return Math.max(0L, state.endWorldTime - currentTime);
+    }
+
+    public static String getRemainingTimeText(MinecraftServer server) {
+        long remainingTicks = getRemainingTicks(server);
+
+        long totalSeconds = remainingTicks / 20L;
+        long minutes = totalSeconds / 60L;
+        long seconds = totalSeconds % 60L;
+
+        return String.format(Locale.ROOT, "%d:%02d", minutes, seconds);
+    }
+
+    public static void tick(MinecraftServer server) {
+        TournamentState state = TournamentState.get(server);
+
+        if (!state.active || state.endWorldTime <= 0L) {
+            return;
+        }
+
+        long currentTime = server.getOverworld().getTime();
+
+        if (currentTime >= state.endWorldTime) {
+            server.getPlayerManager().broadcast(
+                    Text.literal("Time is up!")
+                            .formatted(Formatting.RED, Formatting.BOLD),
+                    false
+            );
+
+            reveal(server);
+        }
     }
 
     public static void reveal(MinecraftServer server) {
@@ -205,48 +236,8 @@ public final class TournamentManager {
         }
 
         state.active = false;
+        state.endWorldTime = 0L;
         state.markDirty();
-    }
-
-    public static long getRemainingTicks(MinecraftServer server) {
-        TournamentState state = TournamentState.get(server);
-
-        if (!state.active || state.endWorldTime <= 0L) {
-            return 0L;
-        }
-
-        long currentTime = server.getOverworld().getTime();
-        return Math.max(0L, state.endWorldTime - currentTime);
-    }
-
-    public static String getRemainingTimeText(MinecraftServer server) {
-        long remainingTicks = getRemainingTicks(server);
-
-        long totalSeconds = remainingTicks / 20L;
-        long minutes = totalSeconds / 60L;
-        long seconds = totalSeconds % 60L;
-
-        return String.format(Locale.ROOT, "%d:%02d", minutes, seconds);
-    }
-
-    public static void tick(MinecraftServer server) {
-        TournamentState state = TournamentState.get(server);
-
-        if (!state.active || state.endWorldTime <= 0L) {
-            return;
-        }
-
-        long currentTime = server.getOverworld().getTime();
-
-        if (currentTime >= state.endWorldTime) {
-            server.getPlayerManager().broadcast(
-                    Text.literal("Time is up!")
-                            .formatted(Formatting.RED, Formatting.BOLD),
-                    false
-            );
-
-            reveal(server);
-        }
     }
 
     private static String formatKg(double weightKg) {
@@ -278,72 +269,6 @@ public final class TournamentManager {
     public record SubmissionResult(boolean tournamentActive, boolean accepted, boolean newPersonalBest) {
         public static SubmissionResult notActive() {
             return new SubmissionResult(false, false, false);
-        }
-
-        public static void start(MinecraftServer server, int minutes) {
-            TournamentState state = TournamentState.get(server);
-
-            long durationTicks = minutes * 60L * 20L;
-            long currentTime = server.getOverworld().getTime();
-
-            state.active = true;
-            state.endWorldTime = currentTime + durationTicks;
-            state.bestEntries.clear();
-            state.submissionCounts.clear();
-            state.markDirty();
-
-            server.getPlayerManager().broadcast(
-                    Text.literal("Fishing tournament started! Time limit: " + minutes + " minutes.")
-                            .formatted(Formatting.AQUA, Formatting.BOLD),
-                    false
-            );
-
-            server.getPlayerManager().broadcast(
-                    Text.literal("Submit your best fish at the Tournament Submission Barrel before time runs out.")
-                            .formatted(Formatting.GRAY),
-                    false
-            );
-        }
-
-        public static long getRemainingTicks(MinecraftServer server) {
-            TournamentState state = TournamentState.get(server);
-
-            if (!state.active || state.endWorldTime <= 0L) {
-                return 0L;
-            }
-
-            long currentTime = server.getOverworld().getTime();
-            return Math.max(0L, state.endWorldTime - currentTime);
-        }
-
-        public static String getRemainingTimeText(MinecraftServer server) {
-            long remainingTicks = getRemainingTicks(server);
-
-            long totalSeconds = remainingTicks / 20L;
-            long minutes = totalSeconds / 60L;
-            long seconds = totalSeconds % 60L;
-
-            return String.format(Locale.ROOT, "%d:%02d", minutes, seconds);
-        }
-
-        public static void tick(MinecraftServer server) {
-            TournamentState state = TournamentState.get(server);
-
-            if (!state.active || state.endWorldTime <= 0L) {
-                return;
-            }
-
-            long currentTime = server.getOverworld().getTime();
-
-            if (currentTime >= state.endWorldTime) {
-                server.getPlayerManager().broadcast(
-                        Text.literal("Time is up!")
-                                .formatted(Formatting.RED, Formatting.BOLD),
-                        false
-                );
-
-                reveal(server);
-            }
         }
 
         public static SubmissionResult accepted(boolean newPersonalBest) {
