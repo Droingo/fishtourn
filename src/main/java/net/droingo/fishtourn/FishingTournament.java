@@ -1,24 +1,26 @@
 package net.droingo.fishtourn;
 
+import net.droingo.fishtourn.command.FishingTournamentCommands;
+import net.droingo.fishtourn.component.ModComponents;
 import net.fabricmc.api.ModInitializer;
-
 import org.slf4j.Logger;
+import net.droingo.fishtourn.block.ModBlocks;
 import org.slf4j.LoggerFactory;
+import net.droingo.fishtourn.tournament.TournamentManager;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 
 public class FishingTournament implements ModInitializer {
-	public static final String MOD_ID = "fishtourn";
+    public static final String MOD_ID = "fishtourn";
+    public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
-	// This logger is used to write text to the console and the log file.
-	// It is considered best practice to use your mod id as the logger's name.
-	// That way, it's clear which mod wrote info, warnings, and errors.
-	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+    @Override
+    public void onInitialize() {
+        ModComponents.register();
+        ModBlocks.register();
+        FishingTournamentCommands.register();
 
-	@Override
-	public void onInitialize() {
-		// This code runs as soon as Minecraft is in a mod-load-ready state.
-		// However, some things (like resources) may still be uninitialized.
-		// Proceed with mild caution.
+        ServerTickEvents.END_SERVER_TICK.register(TournamentManager::tick);
 
-		LOGGER.info("Hello Fabric world!");
-	}
+        LOGGER.info("Fishing Tournament initialized.");
+    }
 }
