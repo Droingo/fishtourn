@@ -52,6 +52,10 @@ public final class FishingTournamentCommands {
                         .requires(source -> source.hasPermissionLevel(2))
                         .executes(context -> giveTournamentRod(context.getSource()))
                 )
+                .then(CommandManager.literal("give_deep_zone")
+                        .requires(source -> source.hasPermissionLevel(2))
+                        .executes(context -> giveDeepFishingZone(context.getSource()))
+                )
                 .then(CommandManager.literal("tournament")
                         .then(CommandManager.literal("start")
                                 .requires(source -> source.hasPermissionLevel(2))
@@ -76,6 +80,29 @@ public final class FishingTournamentCommands {
                         )
                 )
         );
+    }
+
+    private static int giveDeepFishingZone(ServerCommandSource source) {
+        ServerPlayerEntity player = source.getPlayer();
+
+        if (player == null) {
+            source.sendError(Text.literal("This command must be run by a player."));
+            return 0;
+        }
+
+        ItemStack stack = new ItemStack(ModBlocks.DEEP_FISHING_ZONE_ITEM);
+
+        boolean inserted = player.getInventory().insertStack(stack);
+        if (!inserted) {
+            player.dropItem(stack, false);
+        }
+
+        source.sendFeedback(
+                () -> Text.literal("Gave Deep Fishing Zone Marker."),
+                false
+        );
+
+        return 1;
     }
 
     private static int giveGeneratedFish(ServerCommandSource source, Item fishItem) {

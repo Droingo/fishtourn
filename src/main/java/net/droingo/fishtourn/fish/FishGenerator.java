@@ -6,19 +6,20 @@ import net.minecraft.item.Items;
 import net.minecraft.util.math.random.Random;
 
 import java.util.List;
+import java.util.Locale;
 
 public final class FishGenerator {
     private static final List<FishSpeciesDefinition> COD_SPECIES = List.of(
             new FishSpeciesDefinition("Atlantic Cod", 35.0, 85.0, 1.2, 7.5, "Common", 1.00, 55),
-            new FishSpeciesDefinition("Deep Water Cod", 55.0, 115.0, 3.5, 14.0, "Rare", 1.35, 25),
             new FishSpeciesDefinition("Stonefin Cod", 45.0, 95.0, 2.8, 10.5, "Uncommon", 1.15, 35),
+            new FishSpeciesDefinition("Deep Water Cod", 55.0, 115.0, 3.5, 14.0, "Rare", 1.35, 25),
             new FishSpeciesDefinition("Golden Cod", 65.0, 125.0, 4.5, 18.0, "Legendary", 2.00, 5)
     );
 
     private static final List<FishSpeciesDefinition> SALMON_SPECIES = List.of(
             new FishSpeciesDefinition("River Salmon", 40.0, 90.0, 1.5, 8.0, "Common", 1.00, 55),
-            new FishSpeciesDefinition("Silverback Salmon", 65.0, 125.0, 4.0, 18.0, "Rare", 1.40, 25),
             new FishSpeciesDefinition("Crimson Salmon", 55.0, 110.0, 3.0, 13.5, "Uncommon", 1.20, 35),
+            new FishSpeciesDefinition("Silverback Salmon", 65.0, 125.0, 4.0, 18.0, "Rare", 1.40, 25),
             new FishSpeciesDefinition("King Salmon", 85.0, 160.0, 8.0, 32.0, "Legendary", 2.10, 5)
     );
 
@@ -40,10 +41,19 @@ public final class FishGenerator {
     }
 
     public static FishDataComponent generate(Item baseFishItem, Random random) {
-        FishSpeciesDefinition definition = pickDefinition(baseFishItem, random);
+        return generate(baseFishItem, random, CastZone.NONE);
+    }
+
+    public static FishDataComponent generate(Item baseFishItem, Random random, CastZone zone) {
+        FishSpeciesDefinition definition = pickDefinition(baseFishItem, random, zone);
 
         double lengthCm = randomDouble(random, definition.minLengthCm(), definition.maxLengthCm());
         double weightKg = randomDouble(random, definition.minWeightKg(), definition.maxWeightKg());
+
+        if (zone == CastZone.DEEP) {
+            lengthCm *= 1.08;
+            weightKg *= 1.12;
+        }
 
         int score = calculateScore(lengthCm, weightKg, definition.scoreMultiplier());
 
@@ -52,37 +62,38 @@ public final class FishGenerator {
                 round(lengthCm, 1),
                 round(weightKg, 2),
                 definition.rarity(),
-                score
+                score,
+                zone.displayName()
         );
     }
 
-    private static FishSpeciesDefinition pickDefinition(Item baseFishItem, Random random) {
+    private static FishSpeciesDefinition pickDefinition(Item baseFishItem, Random random, CastZone zone) {
         if (baseFishItem == Items.SALMON) {
-            return pickWeighted(SALMON_SPECIES, random);
+            return pickWeighted(SALMON_SPECIES, random, zone);
         }
 
         if (baseFishItem == Items.TROPICAL_FISH) {
-            return pickWeighted(TROPICAL_SPECIES, random);
+            return pickWeighted(TROPICAL_SPECIES, random, zone);
         }
 
         if (baseFishItem == Items.PUFFERFISH) {
-            return pickWeighted(PUFFERFISH_SPECIES, random);
+            return pickWeighted(PUFFERFISH_SPECIES, random, zone);
         }
 
-        return pickWeighted(COD_SPECIES, random);
+        return pickWeighted(COD_SPECIES, random, zone);
     }
 
-    private static FishSpeciesDefinition pickWeighted(List<FishSpeciesDefinition> definitions, Random random) {
+    private static FishSpeciesDefinition pickWeighted(List<FishSpeciesDefinition> definitions, Random random, CastZone zone) {
         int totalWeight = 0;
 
         for (FishSpeciesDefinition definition : definitions) {
-            totalWeight += definition.selectionWeight();
+            totalWeight += getAdjustedSelectionWeight(definition, zone);
         }
 
         int roll = random.nextInt(totalWeight);
 
         for (FishSpeciesDefinition definition : definitions) {
-            roll -= definition.selectionWeight();
+            roll -= getAdjustedSelectionWeight(definition, zone);
 
             if (roll < 0) {
                 return definition;
@@ -90,6 +101,22 @@ public final class FishGenerator {
         }
 
         return definitions.getFirst();
+    }
+
+    private static int getAdjustedSelectionWeight(FishSpeciesDefinition definition, CastZone zone) {
+        int baseWeight = definition.selectionWeight();
+
+        if (zone != CastZone.DEEP) {
+            return baseWeight;
+        }
+
+        return switch (definition.rarity().toLowerCase(Locale.ROOT)) {
+            case "common" -> Math.max(1, (int) (baseWeight * 0.45));
+            case "uncommon" -> Math.max(1, (int) (baseWeight * 0.85));
+            case "rare" -> Math.max(1, (int) (baseWeight * 1.8));
+            case "legendary" -> Math.max(1, (int) (baseWeight * 2.5));
+            default -> baseWeight;
+        };
     }
 
     private static int calculateScore(double lengthCm, double weightKg, double multiplier) {

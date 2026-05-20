@@ -20,6 +20,7 @@ public class FishingTournamentClient implements ClientModInitializer {
 
             lines.add(Text.literal("Fish Stats").formatted(Formatting.AQUA));
             lines.add(Text.literal("Species: " + fishData.species()).formatted(Formatting.GRAY));
+            lines.add(Text.literal("Zone: " + fishData.catchZone()).formatted(Formatting.BLUE));
             lines.add(Text.literal("Length: " + fishData.formattedLength()).formatted(Formatting.GRAY));
             lines.add(Text.literal("Weight: " + fishData.formattedWeightBoth()).formatted(Formatting.GRAY));
             lines.add(Text.literal("Rarity: " + fishData.rarity())

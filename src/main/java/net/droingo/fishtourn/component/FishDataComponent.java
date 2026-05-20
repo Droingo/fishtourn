@@ -10,7 +10,8 @@ public record FishDataComponent(
         double lengthCm,
         double weightKg,
         String rarity,
-        int score
+        int score,
+        String catchZone
 ) {
     public static final double KG_TO_LB = 2.2046226218;
 
@@ -19,7 +20,8 @@ public record FishDataComponent(
             Codec.DOUBLE.fieldOf("length_cm").forGetter(FishDataComponent::lengthCm),
             Codec.DOUBLE.fieldOf("weight_kg").forGetter(FishDataComponent::weightKg),
             Codec.STRING.fieldOf("rarity").forGetter(FishDataComponent::rarity),
-            Codec.INT.fieldOf("score").forGetter(FishDataComponent::score)
+            Codec.INT.fieldOf("score").forGetter(FishDataComponent::score),
+            Codec.STRING.optionalFieldOf("catch_zone", "Open Water").forGetter(FishDataComponent::catchZone)
     ).apply(instance, FishDataComponent::new));
 
     public double weightLb() {

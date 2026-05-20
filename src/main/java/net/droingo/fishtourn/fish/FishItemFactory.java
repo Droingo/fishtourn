@@ -16,12 +16,20 @@ public final class FishItemFactory {
     }
 
     public static ItemStack createGeneratedFish(Item fishItem, Random random) {
+        return createGeneratedFish(fishItem, random, CastZone.NONE);
+    }
+
+    public static ItemStack createGeneratedFish(Item fishItem, Random random, CastZone zone) {
         ItemStack stack = new ItemStack(fishItem);
-        applyGeneratedFishData(stack, random);
+        applyGeneratedFishData(stack, random, zone);
         return stack;
     }
 
     public static boolean applyGeneratedFishData(ItemStack stack, Random random) {
+        return applyGeneratedFishData(stack, random, CastZone.NONE);
+    }
+
+    public static boolean applyGeneratedFishData(ItemStack stack, Random random, CastZone zone) {
         if (!isSupportedFish(stack)) {
             return false;
         }
@@ -30,7 +38,7 @@ public final class FishItemFactory {
             return false;
         }
 
-        FishDataComponent fishData = FishGenerator.generate(stack.getItem(), random);
+        FishDataComponent fishData = FishGenerator.generate(stack.getItem(), random, zone);
 
         stack.set(ModComponents.FISH_DATA, fishData);
         stack.set(DataComponentTypes.CUSTOM_NAME, createDisplayName(fishData));
