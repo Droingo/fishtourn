@@ -7,6 +7,7 @@ public record TournamentEntry(
         String playerName,
         String species,
         String rarity,
+        String catchZone,
         double lengthCm,
         double weightKg,
         int score

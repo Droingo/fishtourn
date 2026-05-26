@@ -1,6 +1,7 @@
 package net.droingo.fishtourn;
 
 import net.droingo.fishtourn.block.ModBlocks;
+import net.droingo.fishtourn.client.ReelingClientInput;
 import net.droingo.fishtourn.command.FishingTournamentCommands;
 import net.droingo.fishtourn.component.ModComponents;
 import net.droingo.fishtourn.tournament.TournamentManager;
@@ -9,6 +10,8 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import org.slf4j.Logger;
 import net.droingo.fishtourn.item.ModItems;
 import org.slf4j.LoggerFactory;
+import net.droingo.fishtourn.network.ModNetworking;
+import net.droingo.fishtourn.reel.ReelingManager;
 
 public class FishingTournament implements ModInitializer {
     public static final String MOD_ID = "fishtourn";
@@ -19,9 +22,12 @@ public class FishingTournament implements ModInitializer {
         ModComponents.register();
         ModItems.register();
         ModBlocks.register();
+        ModNetworking.register();
         FishingTournamentCommands.register();
+        ReelingClientInput.register();
 
         ServerTickEvents.END_SERVER_TICK.register(TournamentManager::tick);
+        ServerTickEvents.END_SERVER_TICK.register(ReelingManager::tick);
 
         LOGGER.info("Fishing Tournament initialized.");
     }

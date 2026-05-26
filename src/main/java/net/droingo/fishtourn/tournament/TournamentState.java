@@ -54,6 +54,9 @@ public class TournamentState extends PersistentState {
             String playerName = entryNbt.getString("PlayerName");
             String species = entryNbt.getString("Species");
             String rarity = entryNbt.getString("Rarity");
+            String catchZone = entryNbt.contains("CatchZone")
+                    ? entryNbt.getString("CatchZone")
+                    : "Open Water";
             double lengthCm = entryNbt.getDouble("LengthCm");
             double weightKg = entryNbt.getDouble("WeightKg");
             int score = entryNbt.getInt("Score");
@@ -63,6 +66,7 @@ public class TournamentState extends PersistentState {
                     playerName,
                     species,
                     rarity,
+                    catchZone,
                     lengthCm,
                     weightKg,
                     score
@@ -99,6 +103,7 @@ public class TournamentState extends PersistentState {
             entryNbt.putString("PlayerName", entry.playerName());
             entryNbt.putString("Species", entry.species());
             entryNbt.putString("Rarity", entry.rarity());
+            entryNbt.putString("CatchZone", entry.catchZone());
             entryNbt.putDouble("LengthCm", entry.lengthCm());
             entryNbt.putDouble("WeightKg", entry.weightKg());
             entryNbt.putInt("Score", entry.score());

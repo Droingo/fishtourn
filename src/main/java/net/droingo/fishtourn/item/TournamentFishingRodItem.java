@@ -1,5 +1,8 @@
 package net.droingo.fishtourn.item;
 
+import net.droingo.fishtourn.network.OpenReelScreenPayload;
+import net.droingo.fishtourn.reel.ReelingManager;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.projectile.FishingBobberEntity;
@@ -39,7 +42,16 @@ public class TournamentFishingRodItem extends FishingRodItem {
         ItemStack stack = user.getStackInHand(hand);
 
         if (user.fishHook != null) {
-            return super.use(world, user, hand);
+            if (!world.isClient() && user instanceof ServerPlayerEntity serverPlayer) {
+                ReelingManager.startSession(serverPlayer, user.fishHook);
+
+                ServerPlayNetworking.send(
+                        serverPlayer,
+                        new OpenReelScreenPayload(user.fishHook.getId())
+                );
+            }
+
+            return TypedActionResult.consume(user.getStackInHand(hand));
         }
 
         user.setCurrentHand(hand);

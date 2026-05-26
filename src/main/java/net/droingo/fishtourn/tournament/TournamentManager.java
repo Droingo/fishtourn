@@ -106,6 +106,7 @@ public final class TournamentManager {
                 player.getName().getString(),
                 fishData.species(),
                 fishData.rarity(),
+                fishData.catchZone(),
                 fishData.lengthCm(),
                 fishData.weightKg(),
                 fishData.score()
@@ -214,8 +215,10 @@ public final class TournamentManager {
                             .append(Text.literal(" | Best: ").formatted(Formatting.DARK_GRAY))
                             .append(Text.literal(entry.species()).formatted(getRarityFormatting(entry.rarity()), Formatting.BOLD))
                             .append(Text.literal(" | ").formatted(Formatting.DARK_GRAY))
-                            .append(Text.literal(entry.rarity()).formatted(getRarityFormatting(entry.rarity())))
                             .append(Text.literal(" | ").formatted(Formatting.DARK_GRAY))
+                            .append(Text.literal(entry.catchZone()).formatted(getZoneFormatting(entry.catchZone())))
+                            .append(Text.literal(" | ").formatted(Formatting.DARK_GRAY))
+                            .append(Text.literal(entry.rarity()).formatted(getRarityFormatting(entry.rarity())))
                             .append(Text.literal(formatKg(entry.weightKg())).formatted(Formatting.AQUA))
                             .append(Text.literal(" / ").formatted(Formatting.GRAY))
                             .append(Text.literal(formatLb(entry.weightKg())).formatted(Formatting.AQUA))
@@ -242,6 +245,13 @@ public final class TournamentManager {
 
     private static String formatKg(double weightKg) {
         return String.format(Locale.ROOT, "%.2f kg", weightKg);
+    }
+
+    private static Formatting getZoneFormatting(String catchZone) {
+        return switch (catchZone.toLowerCase(Locale.ROOT)) {
+            case "deep zone" -> Formatting.BLUE;
+            default -> Formatting.GRAY;
+        };
     }
 
     private static String formatLb(double weightKg) {

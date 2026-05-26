@@ -20,6 +20,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import net.droingo.fishtourn.reel.ReelingManager;
+import net.minecraft.server.network.ServerPlayerEntity;
 
 @Mixin(FishingBobberEntity.class)
 public abstract class FishingBobberEntityMixin extends ProjectileEntity {
@@ -42,6 +44,10 @@ public abstract class FishingBobberEntityMixin extends ProjectileEntity {
 
         if (!this.isTouchingWater()) {
             return;
+        }
+
+        if (this.getOwner() instanceof ServerPlayerEntity serverPlayer) {
+            ReelingManager.startSession(serverPlayer, (FishingBobberEntity) (Object) this);
         }
 
         CastZone zone = FishingZoneDetector.detect(this.getWorld(), this.getBlockPos());
@@ -112,6 +118,9 @@ public abstract class FishingBobberEntityMixin extends ProjectileEntity {
                     this.getWorld().getRandom(),
                     zone
             );
+            if (this.getOwner() instanceof ServerPlayerEntity serverPlayer) {
+                ReelingManager.stopSession(serverPlayer.getUuid());
+            }
 
             if (applied && zone == CastZone.DEEP && this.getOwner() instanceof PlayerEntity player) {
                 player.sendMessage(
