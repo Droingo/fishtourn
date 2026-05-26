@@ -14,9 +14,12 @@ public class ReelScreen extends Screen {
 
     private final int bobberId;
 
+    private float serverProgress = 0.0F;
+    private float serverTension = 55.0F;
+    private String serverDifficulty = "Common";
+
     private boolean hasLastAngle = false;
-    private double lastAngle = 0.0;
-    private float localProgress = 0.0F;
+    private double lastAngle = 0.0D;
     private float accumulatedAmount = 0.0F;
     private int packetCooldown = 0;
     private boolean completionSent = false;
@@ -30,8 +33,7 @@ public class ReelScreen extends Screen {
     protected void init() {
         super.init();
         hasLastAngle = false;
-        lastAngle = 0.0;
-        localProgress = 0.0F;
+        lastAngle = 0.0D;
         accumulatedAmount = 0.0F;
         packetCooldown = 0;
         completionSent = false;
@@ -45,7 +47,7 @@ public class ReelScreen extends Screen {
             packetCooldown--;
         }
 
-        if (!completionSent && localProgress >= 100.0F) {
+        if (!completionSent && serverProgress >= 100.0F) {
             completionSent = true;
             ClientPlayNetworking.send(new ReelCompletePayload(bobberId));
             close();
@@ -61,7 +63,6 @@ public class ReelScreen extends Screen {
 
         double dx = mouseX - centerX;
         double dy = mouseY - centerY;
-
         double radiusSquared = dx * dx + dy * dy;
 
         if (radiusSquared < INNER_RADIUS * INNER_RADIUS) {
@@ -69,7 +70,7 @@ public class ReelScreen extends Screen {
             return;
         }
 
-        if (radiusSquared > REEL_RADIUS * REEL_RADIUS * 3.5) {
+        if (radiusSquared > REEL_RADIUS * REEL_RADIUS * 3.5D) {
             hasLastAngle = false;
             return;
         }
@@ -91,33 +92,36 @@ public class ReelScreen extends Screen {
             return;
         }
 
-        accumulatedAmount += movement * 3.5F;
-        localProgress = Math.min(100.0F, localProgress + movement * 3.0F);
+        accumulatedAmount += movement * 4.5F;
 
         if (accumulatedAmount >= 1.0F && packetCooldown <= 0) {
-            boolean clockwise = delta > 0.0;
+            boolean clockwise = delta > 0.0D;
+            float sentAmount = Math.min(accumulatedAmount, 3.0F);
 
-            ClientPlayNetworking.send(new ReelInputPayload(
-                    Math.min(accumulatedAmount, 3.0F),
-                    clockwise
-            ));
+            ClientPlayNetworking.send(new ReelInputPayload(sentAmount, clockwise));
 
             accumulatedAmount = 0.0F;
             packetCooldown = 2;
         }
     }
 
+    public void updateFromServer(int bobberId, float progress, float tension, String difficulty) {
+        if (this.bobberId != bobberId) {
+            return;
+        }
+
+        this.serverProgress = Math.max(0.0F, Math.min(100.0F, progress));
+        this.serverTension = Math.max(0.0F, Math.min(100.0F, tension));
+        this.serverDifficulty = difficulty;
+    }
+
     @Override
     public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
-        // Intentionally empty.
-        // This prevents the normal screen darkening/blur background.
+        // Keep the world visible behind the reel GUI.
     }
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        // Do not render the dark/blurred menu background.
-// Fishing should stay visually connected to the world behind the GUI.
-
         int centerX = width / 2;
         int centerY = height / 2;
 
@@ -125,7 +129,15 @@ public class ReelScreen extends Screen {
                 textRenderer,
                 Text.literal("Spin the Reel").formatted(Formatting.AQUA, Formatting.BOLD),
                 centerX,
-                centerY - 82,
+                centerY - 96,
+                0xFFFFFF
+        );
+
+        context.drawCenteredTextWithShadow(
+                textRenderer,
+                Text.literal("Fight: " + serverDifficulty).formatted(getDifficultyFormatting()),
+                centerX,
+                centerY - 80,
                 0xFFFFFF
         );
 
@@ -133,29 +145,54 @@ public class ReelScreen extends Screen {
 
         context.drawCenteredTextWithShadow(
                 textRenderer,
-                Text.literal("Progress: " + Math.round(localProgress) + "%").formatted(Formatting.GREEN),
+                Text.literal("Progress: " + Math.round(serverProgress) + "%").formatted(Formatting.GREEN),
                 centerX,
-                centerY + 62,
+                centerY + 84,
                 0xFFFFFF
         );
 
         context.drawCenteredTextWithShadow(
                 textRenderer,
-                Text.literal("Move your mouse in circles inside the reel").formatted(Formatting.GRAY),
+                Text.literal("Tension: " + Math.round(serverTension) + "%").formatted(getTensionFormatting()),
                 centerX,
-                centerY + 78,
+                centerY + 100,
                 0xFFFFFF
         );
 
+        String warning = getWarningText();
 
+        if (!warning.isEmpty()) {
+            context.drawCenteredTextWithShadow(
+                    textRenderer,
+                    Text.literal(warning).formatted(getWarningFormatting(), Formatting.BOLD),
+                    centerX,
+                    centerY + 118,
+                    0xFFFFFF
+            );
+        } else {
+            context.drawCenteredTextWithShadow(
+                    textRenderer,
+                    Text.literal("Spin steadily. Stop briefly to lower tension.").formatted(Formatting.GRAY),
+                    centerX,
+                    centerY + 118,
+                    0xFFFFFF
+            );
+        }
     }
 
     private void drawReel(DrawContext context, int centerX, int centerY) {
         int outerColor = 0xFF1E90FF;
         int innerColor = 0xFF0B3D5C;
         int progressColor = 0xFF55FF55;
+        int tensionColor = getTensionBarColor();
 
-        context.fill(centerX - REEL_RADIUS, centerY - REEL_RADIUS, centerX + REEL_RADIUS, centerY + REEL_RADIUS, 0xAA061A2A);
+        context.fill(
+                centerX - REEL_RADIUS,
+                centerY - REEL_RADIUS,
+                centerX + REEL_RADIUS,
+                centerY + REEL_RADIUS,
+                0xAA061A2A
+        );
 
         context.drawBorder(
                 centerX - REEL_RADIUS,
@@ -173,23 +210,87 @@ public class ReelScreen extends Screen {
                 innerColor
         );
 
-        int progressWidth = (int) ((REEL_RADIUS * 2) * (localProgress / 100.0F));
+        int progressWidth = (int) ((REEL_RADIUS * 2) * (serverProgress / 100.0F));
+        int tensionWidth = (int) ((REEL_RADIUS * 2) * (serverTension / 100.0F));
 
-        context.fill(
-                centerX - REEL_RADIUS,
-                centerY + REEL_RADIUS + 12,
-                centerX - REEL_RADIUS + progressWidth,
-                centerY + REEL_RADIUS + 18,
-                progressColor
-        );
+        int barX = centerX - REEL_RADIUS;
+        int barY = centerY + REEL_RADIUS + 18;
+        int barWidth = REEL_RADIUS * 2;
 
-        context.drawBorder(
-                centerX - REEL_RADIUS,
-                centerY + REEL_RADIUS + 12,
-                REEL_RADIUS * 2,
-                6,
-                0xFFFFFFFF
-        );
+        context.fill(barX, barY, barX + progressWidth, barY + 6, progressColor);
+        context.drawBorder(barX, barY, barWidth, 6, 0xFFFFFFFF);
+
+        context.fill(barX, barY + 13, barX + tensionWidth, barY + 19, tensionColor);
+        context.drawBorder(barX, barY + 13, barWidth, 6, 0xFFFFFFFF);
+    }
+
+    private Formatting getDifficultyFormatting() {
+        return switch (serverDifficulty.toLowerCase()) {
+            case "uncommon" -> Formatting.GREEN;
+            case "rare" -> Formatting.AQUA;
+            case "legendary" -> Formatting.LIGHT_PURPLE;
+            default -> Formatting.WHITE;
+        };
+    }
+
+    private Formatting getTensionFormatting() {
+        if (serverTension >= 90.0F) {
+            return Formatting.RED;
+        }
+
+        if (serverTension >= 75.0F) {
+            return Formatting.GOLD;
+        }
+
+        if (serverTension < 25.0F) {
+            return Formatting.YELLOW;
+        }
+
+        return Formatting.GREEN;
+    }
+
+    private int getTensionBarColor() {
+        if (serverTension >= 90.0F) {
+            return 0xFFFF3333;
+        }
+
+        if (serverTension >= 75.0F) {
+            return 0xFFFFAA00;
+        }
+
+        if (serverTension < 25.0F) {
+            return 0xFFFFFF55;
+        }
+
+        return 0xFF55FF55;
+    }
+
+    private String getWarningText() {
+        if (serverTension >= 98.0F) {
+            return "LINE ABOUT TO SNAP!";
+        }
+
+        if (serverTension >= 90.0F) {
+            return "Ease up!";
+        }
+
+        if (serverTension < 20.0F) {
+            return "Line is slack!";
+        }
+
+        return "";
+    }
+
+    private Formatting getWarningFormatting() {
+        if (serverTension >= 90.0F) {
+            return Formatting.RED;
+        }
+
+        if (serverTension < 20.0F) {
+            return Formatting.YELLOW;
+        }
+
+        return Formatting.GRAY;
     }
 
     @Override
@@ -199,11 +300,11 @@ public class ReelScreen extends Screen {
 
     private static double wrapAngle(double angle) {
         while (angle <= -Math.PI) {
-            angle += Math.PI * 2.0;
+            angle += Math.PI * 2.0D;
         }
 
         while (angle > Math.PI) {
-            angle -= Math.PI * 2.0;
+            angle -= Math.PI * 2.0D;
         }
 
         return angle;

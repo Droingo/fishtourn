@@ -1,7 +1,6 @@
 package net.droingo.fishtourn;
 
 import net.droingo.fishtourn.block.ModBlocks;
-import net.droingo.fishtourn.client.ReelingClientInput;
 import net.droingo.fishtourn.command.FishingTournamentCommands;
 import net.droingo.fishtourn.component.ModComponents;
 import net.droingo.fishtourn.tournament.TournamentManager;
@@ -24,7 +23,7 @@ public class FishingTournament implements ModInitializer {
         ModBlocks.register();
         ModNetworking.register();
         FishingTournamentCommands.register();
-        ReelingClientInput.register();
+
 
         ServerTickEvents.END_SERVER_TICK.register(TournamentManager::tick);
         ServerTickEvents.END_SERVER_TICK.register(ReelingManager::tick);

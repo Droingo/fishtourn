@@ -10,6 +10,9 @@ public final class ModNetworking {
 
     public static void register() {
         PayloadTypeRegistry.playS2C().register(OpenReelScreenPayload.ID, OpenReelScreenPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(ReelSyncPayload.ID, ReelSyncPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(ReelFailPayload.ID, ReelFailPayload.CODEC);
+
         PayloadTypeRegistry.playC2S().register(ReelInputPayload.ID, ReelInputPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(ReelCompletePayload.ID, ReelCompletePayload.CODEC);
 

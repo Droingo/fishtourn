@@ -1,0 +1,20 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "fishtourn:block/trophy",
+      "y": 0
+    },
+    "facing=east": {
+      "model": "fishtourn:block/trophy",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "fishtourn:block/trophy",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "fishtourn:block/trophy",
+      "y": 270
+    }
+  }
+}

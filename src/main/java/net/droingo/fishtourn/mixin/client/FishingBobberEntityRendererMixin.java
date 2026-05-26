@@ -1,4 +1,4 @@
-package net.droingo.fishtourn.mixin;
+package net.droingo.fishtourn.mixin.client;
 
 import net.droingo.fishtourn.item.ModItems;
 import net.minecraft.client.render.entity.FishingBobberEntityRenderer;

@@ -1,5 +1,6 @@
 package net.droingo.fishtourn.item;
 
+import net.droingo.fishtourn.fish.TournamentBobberAccess;
 import net.droingo.fishtourn.network.OpenReelScreenPayload;
 import net.droingo.fishtourn.reel.ReelingManager;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -43,15 +44,23 @@ public class TournamentFishingRodItem extends FishingRodItem {
 
         if (user.fishHook != null) {
             if (!world.isClient() && user instanceof ServerPlayerEntity serverPlayer) {
-                ReelingManager.startSession(serverPlayer, user.fishHook);
+                boolean hasFishHooked = user.fishHook instanceof TournamentBobberAccess bobberAccess
+                        && bobberAccess.fishtourn$hasFishHooked();
 
-                ServerPlayNetworking.send(
-                        serverPlayer,
-                        new OpenReelScreenPayload(user.fishHook.getId())
-                );
+                if (hasFishHooked) {
+                    ReelingManager.startSession(serverPlayer, user.fishHook);
+
+                    ServerPlayNetworking.send(
+                            serverPlayer,
+                            new OpenReelScreenPayload(user.fishHook.getId())
+                    );
+
+                    return TypedActionResult.consume(stack);
+                }
             }
 
-            return TypedActionResult.consume(user.getStackInHand(hand));
+            // No fish is hooked yet, so let the player cancel/reel the bobber normally.
+            return super.use(world, user, hand);
         }
 
         user.setCurrentHand(hand);
@@ -151,6 +160,7 @@ public class TournamentFishingRodItem extends FishingRodItem {
         tooltip.add(Text.literal("Tournament Rod").formatted(Formatting.AQUA));
         tooltip.add(Text.literal("Hold right-click to charge your cast.").formatted(Formatting.GRAY));
         tooltip.add(Text.literal("Release in the sweet spot for max distance.").formatted(Formatting.DARK_GRAY));
+        tooltip.add(Text.literal("Right-click during a bite to fight the fish.").formatted(Formatting.BLUE));
     }
 
     private static CastResult getCastResult(int chargeTicks) {
