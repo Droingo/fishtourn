@@ -1,6 +1,7 @@
 package net.droingo.fishtourn.tournament;
 
 import net.droingo.fishtourn.FishingTournament;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtList;
@@ -16,6 +17,7 @@ import java.util.UUID;
 
 public class TournamentState extends PersistentState {
     private static final String STATE_ID = FishingTournament.MOD_ID + "_tournament";
+    public static final int MAX_SUBMISSIONS_PER_PLAYER = 5;
 
     public boolean active = false;
     public long endWorldTime = 0L;
@@ -37,6 +39,61 @@ public class TournamentState extends PersistentState {
         }
 
         return overworld.getPersistentStateManager().getOrCreate(TYPE, STATE_ID);
+    }
+
+    public boolean canSubmitFish(PlayerEntity player) {
+        return getSubmissionCount(player) < MAX_SUBMISSIONS_PER_PLAYER;
+    }
+
+    public int getSubmissionCount(PlayerEntity player) {
+        return submissionCounts.getOrDefault(player.getUuid(), 0);
+    }
+
+    public int getRemainingSubmissions(PlayerEntity player) {
+        return Math.max(0, MAX_SUBMISSIONS_PER_PLAYER - getSubmissionCount(player));
+    }
+
+    public void recordSubmission(PlayerEntity player) {
+        UUID playerUuid = player.getUuid();
+        int currentCount = submissionCounts.getOrDefault(playerUuid, 0);
+
+        submissionCounts.put(playerUuid, currentCount + 1);
+        markDirty();
+    }
+
+    public void clearSubmissionCounts() {
+        submissionCounts.clear();
+        markDirty();
+    }
+
+    public void resetTournament() {
+        active = false;
+        endWorldTime = 0L;
+        bestEntries.clear();
+        submissionCounts.clear();
+        markDirty();
+    }
+
+    public void startTournament(long endWorldTime) {
+        this.active = true;
+        this.endWorldTime = endWorldTime;
+
+        bestEntries.clear();
+        submissionCounts.clear();
+
+        markDirty();
+    }
+
+    public void stopTournament() {
+        this.active = false;
+        this.endWorldTime = 0L;
+
+        markDirty();
+    }
+
+    public void putBestEntry(UUID playerUuid, TournamentEntry entry) {
+        bestEntries.put(playerUuid, entry);
+        markDirty();
     }
 
     public static TournamentState fromNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registries) {

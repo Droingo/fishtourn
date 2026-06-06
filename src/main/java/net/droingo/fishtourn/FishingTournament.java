@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import net.droingo.fishtourn.network.ModNetworking;
 import net.droingo.fishtourn.reel.ReelingManager;
 import net.droingo.fishtourn.entity.ModEntities;
+import net.droingo.fishtourn.memorial.MemorialRocketManager;
 
 public class FishingTournament implements ModInitializer {
     public static final String MOD_ID = "fishtourn";
@@ -25,6 +26,7 @@ public class FishingTournament implements ModInitializer {
         ModNetworking.register();
         FishingTournamentCommands.register();
         ModEntities.register();
+        MemorialRocketManager.register();
 
 
         ServerTickEvents.END_SERVER_TICK.register(TournamentManager::tick);

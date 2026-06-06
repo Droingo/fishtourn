@@ -1,15 +1,10 @@
 package net.droingo.fishtourn.item;
 
-import net.droingo.fishtourn.network.MemorialHeadEffectPayload;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.droingo.fishtourn.memorial.MemorialRocketManager;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Hand;
@@ -30,59 +25,25 @@ public class MemorialFireworkItem extends Item {
             return TypedActionResult.success(stack, true);
         }
 
-        Vec3d center = user.getPos()
-                .add(user.getRotationVector().multiply(4.0D))
-                .add(0.0D, 5.5D, 0.0D);
+        Vec3d look = user.getRotationVector();
 
-        serverWorld.spawnParticles(
-                ParticleTypes.FIREWORK,
-                center.x,
-                center.y,
-                center.z,
-                80,
-                0.8D,
-                0.8D,
-                0.8D,
-                0.08D
+        Vec3d startPos = new Vec3d(
+                user.getX() + look.x * 0.7D,
+                user.getEyeY() - 0.2D,
+                user.getZ() + look.z * 0.7D
         );
 
-        serverWorld.playSound(
-                null,
-                center.x,
-                center.y,
-                center.z,
-                SoundEvents.ENTITY_FIREWORK_ROCKET_LAUNCH,
-                SoundCategory.PLAYERS,
-                1.0F,
-                0.9F
+        Vec3d velocity = look.multiply(0.25D).add(0.0D, 0.55D, 0.0D);
+
+        MemorialRocketManager.launch(
+                serverWorld,
+                startPos,
+                velocity,
+                user.getYaw() + 90.0F
         );
-
-        serverWorld.playSound(
-                null,
-                center.x,
-                center.y,
-                center.z,
-                SoundEvents.ENTITY_FIREWORK_ROCKET_BLAST,
-                SoundCategory.PLAYERS,
-                1.4F,
-                0.75F
-        );
-
-        float yaw = user.getYaw() + 90.0F;
-
-        for (ServerPlayerEntity player : serverWorld.getPlayers()) {
-            if (player.squaredDistanceTo(center) > 128.0D * 128.0D) {
-                continue;
-            }
-
-            ServerPlayNetworking.send(
-                    player,
-                    new MemorialHeadEffectPayload(center.x, center.y, center.z, yaw)
-            );
-        }
 
         user.sendMessage(
-                Text.literal("A memorial firework lights the sky.")
+                Text.literal("A memorial rocket rises into the sky.")
                         .formatted(Formatting.GOLD),
                 true
         );
@@ -90,6 +51,8 @@ public class MemorialFireworkItem extends Item {
         if (!user.getAbilities().creativeMode) {
             stack.decrement(1);
         }
+
+        user.getItemCooldownManager().set(this, 20);
 
         return TypedActionResult.success(stack, false);
     }

@@ -11,8 +11,10 @@ public final class ModEntities {
     public static final EntityType<WakeSplashEntity> WAKE_SPLASH = Registry.register(
             Registries.ENTITY_TYPE,
             Identifier.of(FishingTournament.MOD_ID, "wake_splash"),
-            EntityType.Builder
-                    .create(WakeSplashEntity::new, SpawnGroup.MISC)
+            EntityType.Builder.<WakeSplashEntity>create(
+                            WakeSplashEntity::new,
+                            SpawnGroup.MISC
+                    )
                     .dimensions(0.08F, 0.08F)
                     .maxTrackingRange(16)
                     .trackingTickInterval(1)
