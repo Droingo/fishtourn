@@ -1,5 +1,6 @@
 package net.droingo.fishtourn.mixin;
 
+import net.droingo.fishtourn.compat.FishOfThievesCompat;
 import net.droingo.fishtourn.component.FishDataComponent;
 import net.droingo.fishtourn.component.ModComponents;
 import net.droingo.fishtourn.fish.CastZone;
@@ -12,7 +13,9 @@ import net.minecraft.entity.EntityType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.projectile.FishingBobberEntity;
 import net.minecraft.entity.projectile.ProjectileEntity;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.particle.DustParticleEffect;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -21,16 +24,16 @@ import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
-import net.droingo.fishtourn.compat.FishOfThievesCompat;
+import net.minecraft.util.math.random.Random;
 import net.minecraft.world.World;
 import org.joml.Vector3f;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
+import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.Locale;
 
@@ -59,8 +62,29 @@ public abstract class FishingBobberEntityMixin extends ProjectileEntity implemen
 
     @Override
     public void fishtourn$keepFishHooked() {
-        this.hookCountdown = Math.max(this.hookCountdown, 20);
+        this.hookCountdown = Math.max(this.hookCountdown, 100);
     }
+
+    /**
+     * Vanilla removes fishing bobbers if the owner is not holding Items.FISHING_ROD.
+     * This makes the tournament rod count as a valid fishing rod for that check.
+     */
+    @Redirect(
+            method = "removeIfInvalid",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/item/ItemStack;isOf(Lnet/minecraft/item/Item;)Z"
+            )
+    )
+    private boolean fishtourn$tournamentRodKeepsBobberValid(ItemStack stack, Item item) {
+        if (item == Items.FISHING_ROD && stack.isOf(ModItems.TOURNAMENT_ROD)) {
+            return true;
+        }
+
+        return stack.isOf(item);
+    }
+
+    private boolean fishtourn$biteNotified = false;
 
     @Inject(method = "tick", at = @At("TAIL"))
     private void fishtourn$checkZoneLanding(CallbackInfo ci) {
@@ -127,14 +151,22 @@ public abstract class FishingBobberEntityMixin extends ProjectileEntity implemen
             return;
         }
 
-        // Vanilla already decrements these once per tick.
-        // We decrement them one extra time, making the bite process roughly 2x faster.
-        if (this.waitCountdown > 0) {
-            this.waitCountdown = Math.max(0, this.waitCountdown - 1);
+        /*
+         * Important:
+         * Do NOT reduce these counters to 0 here.
+         *
+         * Vanilla has special transition logic when its own tick decrements:
+         * waitCountdown -> fishTravelCountdown
+         * fishTravelCountdown -> hookCountdown
+         *
+         * If we force the counter to 0 at TAIL, vanilla may miss that transition.
+         */
+        if (this.waitCountdown > 1) {
+            this.waitCountdown--;
         }
 
-        if (this.fishTravelCountdown > 0) {
-            this.fishTravelCountdown = Math.max(0, this.fishTravelCountdown - 1);
+        if (this.fishTravelCountdown > 1) {
+            this.fishTravelCountdown--;
         }
     }
 
@@ -145,22 +177,6 @@ public abstract class FishingBobberEntityMixin extends ProjectileEntity implemen
 
         return player.getMainHandStack().isOf(ModItems.TOURNAMENT_ROD)
                 || player.getOffHandStack().isOf(ModItems.TOURNAMENT_ROD);
-    }
-
-    @Inject(method = "removeIfInvalid", at = @At("HEAD"), cancellable = true)
-    private void fishtourn$allowTournamentRodBobber(PlayerEntity player, CallbackInfoReturnable<Boolean> cir) {
-        boolean holdingTournamentRod = player.getMainHandStack().isOf(ModItems.TOURNAMENT_ROD)
-                || player.getOffHandStack().isOf(ModItems.TOURNAMENT_ROD);
-
-        if (!holdingTournamentRod) {
-            return;
-        }
-
-        if (player.isRemoved() || !player.isAlive() || this.squaredDistanceTo(player) > 1024.0D) {
-            return;
-        }
-
-        cir.setReturnValue(false);
     }
 
     @ModifyArg(

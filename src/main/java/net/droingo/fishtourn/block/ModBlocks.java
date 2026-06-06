@@ -26,7 +26,7 @@ public final class ModBlocks {
 
     public static final Block DEEP_FISHING_ZONE = registerBlockOnly(
             "deep_fishing_zone",
-            new FishingZoneBlock(AbstractBlock.Settings.copy(Blocks.GLASS).noCollision().nonOpaque())
+            new FishingZoneBlock(AbstractBlock.Settings.copy(Blocks.GLASS).noCollision().nonOpaque().ticksRandomly())
     );
 
     public static final Item DEEP_FISHING_ZONE_ITEM = registerBlockItem(

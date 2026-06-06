@@ -11,6 +11,7 @@ import net.droingo.fishtourn.item.ModItems;
 import org.slf4j.LoggerFactory;
 import net.droingo.fishtourn.network.ModNetworking;
 import net.droingo.fishtourn.reel.ReelingManager;
+import net.droingo.fishtourn.entity.ModEntities;
 
 public class FishingTournament implements ModInitializer {
     public static final String MOD_ID = "fishtourn";
@@ -23,6 +24,7 @@ public class FishingTournament implements ModInitializer {
         ModBlocks.register();
         ModNetworking.register();
         FishingTournamentCommands.register();
+        ModEntities.register();
 
 
         ServerTickEvents.END_SERVER_TICK.register(TournamentManager::tick);

@@ -12,19 +12,27 @@ public final class ModNetworking {
         PayloadTypeRegistry.playS2C().register(OpenReelScreenPayload.ID, OpenReelScreenPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(ReelSyncPayload.ID, ReelSyncPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(ReelFailPayload.ID, ReelFailPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(MemorialHeadEffectPayload.ID, MemorialHeadEffectPayload.CODEC);
 
         PayloadTypeRegistry.playC2S().register(ReelInputPayload.ID, ReelInputPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(ReelCompletePayload.ID, ReelCompletePayload.CODEC);
 
         ServerPlayNetworking.registerGlobalReceiver(ReelInputPayload.ID, (payload, context) -> {
             context.server().execute(() -> {
-                ReelingManager.receiveInput(context.player(), payload.amount(), payload.clockwise());
+                ReelingManager.receiveInput(
+                        context.player(),
+                        payload.amount(),
+                        payload.clockwise()
+                );
             });
         });
 
         ServerPlayNetworking.registerGlobalReceiver(ReelCompletePayload.ID, (payload, context) -> {
             context.server().execute(() -> {
-                ReelingManager.completeReel(context.player(), payload.bobberId());
+                ReelingManager.completeReel(
+                        context.player(),
+                        payload.bobberId()
+                );
             });
         });
     }

@@ -16,6 +16,10 @@ import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.WorldAccess;
 import net.minecraft.world.WorldView;
+import net.droingo.fishtourn.entity.ModEntities;
+import net.droingo.fishtourn.entity.WakeSplashEntity;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.util.math.random.Random;
 
 public class FishingZoneBlock extends Block implements Waterloggable {
     public static final BooleanProperty WATERLOGGED = Properties.WATERLOGGED;
@@ -96,6 +100,32 @@ public class FishingZoneBlock extends Block implements Waterloggable {
                 0.40,
                 0.02
         );
+    }
+
+    @Override
+    protected void randomTick(BlockState state, ServerWorld world, BlockPos pos, Random random) {
+        super.randomTick(state, world, pos, random);
+
+        if (random.nextInt(5) != 0) {
+            return;
+        }
+
+        BlockPos spawnPos = pos.up();
+
+        if (!world.getBlockState(spawnPos).isAir()) {
+            return;
+        }
+
+        WakeSplashEntity entity = new WakeSplashEntity(ModEntities.WAKE_SPLASH, world);
+
+        double x = pos.getX() + 0.25D + random.nextDouble() * 0.5D;
+        double y = pos.getY() + 1.35D + random.nextDouble() * 0.45D;
+        double z = pos.getZ() + 0.25D + random.nextDouble() * 0.5D;
+
+        entity.refreshPositionAndAngles(x, y, z, 0.0F, 0.0F);
+        entity.setVelocity(0.0D, -0.16D, 0.0D);
+
+        world.spawnEntity(entity);
     }
 
     private static BlockPos findWaterSurface(ServerWorld world, BlockPos markerPos) {

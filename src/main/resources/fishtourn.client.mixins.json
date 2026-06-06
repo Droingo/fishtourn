@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "net.droingo.fishtourn.mixin.client",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "FishingBobberEntityRendererMixin",
+    "BipedEntityModelMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
