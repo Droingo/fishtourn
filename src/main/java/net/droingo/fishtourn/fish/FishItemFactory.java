@@ -6,9 +6,11 @@ import net.minecraft.component.DataComponentTypes;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.registry.Registries;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.random.Random;
 
 public final class FishItemFactory {
@@ -47,10 +49,36 @@ public final class FishItemFactory {
     }
 
     public static boolean isSupportedFish(ItemStack stack) {
+        return isVanillaFish(stack) || isFishOfThievesFish(stack);
+    }
+
+    private static boolean isVanillaFish(ItemStack stack) {
         return stack.isOf(Items.COD)
                 || stack.isOf(Items.SALMON)
                 || stack.isOf(Items.TROPICAL_FISH)
                 || stack.isOf(Items.PUFFERFISH);
+    }
+
+    private static boolean isFishOfThievesFish(ItemStack stack) {
+        Identifier id = Registries.ITEM.getId(stack.getItem());
+
+        if (!id.getNamespace().equals("fishofthieves")) {
+            return false;
+        }
+
+        return switch (id.getPath()) {
+            case "splashtail",
+                 "pondie",
+                 "islehopper",
+                 "ancientscale",
+                 "plentifin",
+                 "wildsplash",
+                 "devilfish",
+                 "battlegill",
+                 "wrecker",
+                 "stormfish" -> true;
+            default -> false;
+        };
     }
 
     public static MutableText createDisplayName(FishDataComponent fishData) {

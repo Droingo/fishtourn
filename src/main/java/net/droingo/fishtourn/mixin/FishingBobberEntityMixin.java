@@ -21,6 +21,7 @@ import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
+import net.droingo.fishtourn.compat.FishOfThievesCompat;
 import net.minecraft.world.World;
 import org.joml.Vector3f;
 import org.spongepowered.asm.mixin.Mixin;
@@ -171,48 +172,54 @@ public abstract class FishingBobberEntityMixin extends ProjectileEntity implemen
             index = 4
     )
     private ItemStack fishtourn$addFishStatsToCaughtFish(ItemStack stack) {
-        if (!this.getWorld().isClient()) {
-            CastZone zone = this.fishtourn$deepZoneHit
-                    ? CastZone.DEEP
-                    : FishingZoneDetector.detect(this.getWorld(), this.getBlockPos());
+        if (this.getWorld().isClient()) {
+            return stack;
+        }
 
-            boolean applied = FishItemFactory.applyGeneratedFishData(
-                    stack,
-                    this.getWorld().getRandom(),
-                    zone
-            );
+        CastZone zone = this.fishtourn$deepZoneHit
+                ? CastZone.DEEP
+                : FishingZoneDetector.detect(this.getWorld(), this.getBlockPos());
 
-            if (applied && this.getOwner() instanceof PlayerEntity player && this.getWorld() instanceof ServerWorld serverWorld) {
-                FishDataComponent fishData = stack.get(ModComponents.FISH_DATA);
+        ItemStack catchStack = FishOfThievesCompat
+                .rollFishOfThievesCatch(this.getWorld().getRandom())
+                .orElse(stack);
 
-                if (fishData != null) {
-                    fishtourn$spawnCatchParticles(serverWorld, player, fishData.rarity());
+        boolean applied = FishItemFactory.applyGeneratedFishData(
+                catchStack,
+                this.getWorld().getRandom(),
+                zone
+        );
 
-                    serverWorld.playSound(
-                            null,
-                            player.getBlockPos(),
-                            SoundEvents.ENTITY_PLAYER_LEVELUP,
-                            SoundCategory.PLAYERS,
-                            0.35F,
-                            1.65F
-                    );
-                }
-            }
+        if (applied && this.getOwner() instanceof PlayerEntity player && this.getWorld() instanceof ServerWorld serverWorld) {
+            FishDataComponent fishData = catchStack.get(ModComponents.FISH_DATA);
 
-            if (this.getOwner() instanceof ServerPlayerEntity serverPlayer) {
-                ReelingManager.stopSession(serverPlayer.getUuid());
-            }
+            if (fishData != null) {
+                fishtourn$spawnCatchParticles(serverWorld, player, fishData.rarity());
 
-            if (applied && zone == CastZone.DEEP && this.getOwner() instanceof PlayerEntity player) {
-                player.sendMessage(
-                        Text.literal("Deep Zone Catch!")
-                                .formatted(Formatting.AQUA, Formatting.BOLD),
-                        true
+                serverWorld.playSound(
+                        null,
+                        player.getBlockPos(),
+                        SoundEvents.ENTITY_PLAYER_LEVELUP,
+                        SoundCategory.PLAYERS,
+                        0.35F,
+                        1.65F
                 );
             }
         }
 
-        return stack;
+        if (this.getOwner() instanceof ServerPlayerEntity serverPlayer) {
+            ReelingManager.stopSession(serverPlayer.getUuid());
+        }
+
+        if (applied && zone == CastZone.DEEP && this.getOwner() instanceof PlayerEntity player) {
+            player.sendMessage(
+                    Text.literal("Deep Zone Catch!")
+                            .formatted(Formatting.AQUA, Formatting.BOLD),
+                    true
+            );
+        }
+
+        return catchStack;
     }
 
     private void fishtourn$spawnCatchParticles(ServerWorld world, PlayerEntity player, String rarity) {
