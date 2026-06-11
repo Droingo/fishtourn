@@ -17,10 +17,16 @@ import java.util.UUID;
 
 public class TournamentState extends PersistentState {
     private static final String STATE_ID = FishingTournament.MOD_ID + "_tournament";
+
     public static final int MAX_SUBMISSIONS_PER_PLAYER = 5;
 
     public boolean active = false;
     public long endWorldTime = 0L;
+
+    public boolean warnedFiveMinutes = false;
+    public boolean warnedOneMinute = false;
+    public boolean warnedThirtySeconds = false;
+    public boolean warnedTenSeconds = false;
 
     public final Map<UUID, TournamentEntry> bestEntries = new HashMap<>();
     public final Map<UUID, Integer> submissionCounts = new HashMap<>();
@@ -66,17 +72,37 @@ public class TournamentState extends PersistentState {
         markDirty();
     }
 
+    public void resetWarningFlags() {
+        warnedFiveMinutes = false;
+        warnedOneMinute = false;
+        warnedThirtySeconds = false;
+        warnedTenSeconds = false;
+        markDirty();
+    }
+
     public void resetTournament() {
         active = false;
         endWorldTime = 0L;
+
+        warnedFiveMinutes = false;
+        warnedOneMinute = false;
+        warnedThirtySeconds = false;
+        warnedTenSeconds = false;
+
         bestEntries.clear();
         submissionCounts.clear();
+
         markDirty();
     }
 
     public void startTournament(long endWorldTime) {
         this.active = true;
         this.endWorldTime = endWorldTime;
+
+        warnedFiveMinutes = false;
+        warnedOneMinute = false;
+        warnedThirtySeconds = false;
+        warnedTenSeconds = false;
 
         bestEntries.clear();
         submissionCounts.clear();
@@ -87,6 +113,11 @@ public class TournamentState extends PersistentState {
     public void stopTournament() {
         this.active = false;
         this.endWorldTime = 0L;
+
+        warnedFiveMinutes = false;
+        warnedOneMinute = false;
+        warnedThirtySeconds = false;
+        warnedTenSeconds = false;
 
         markDirty();
     }
@@ -101,6 +132,11 @@ public class TournamentState extends PersistentState {
 
         state.active = nbt.getBoolean("Active");
         state.endWorldTime = nbt.getLong("EndWorldTime");
+
+        state.warnedFiveMinutes = nbt.getBoolean("WarnedFiveMinutes");
+        state.warnedOneMinute = nbt.getBoolean("WarnedOneMinute");
+        state.warnedThirtySeconds = nbt.getBoolean("WarnedThirtySeconds");
+        state.warnedTenSeconds = nbt.getBoolean("WarnedTenSeconds");
 
         NbtList entriesList = nbt.getList("BestEntries", NbtElement.COMPOUND_TYPE);
 
@@ -150,6 +186,11 @@ public class TournamentState extends PersistentState {
     public NbtCompound writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registries) {
         nbt.putBoolean("Active", active);
         nbt.putLong("EndWorldTime", endWorldTime);
+
+        nbt.putBoolean("WarnedFiveMinutes", warnedFiveMinutes);
+        nbt.putBoolean("WarnedOneMinute", warnedOneMinute);
+        nbt.putBoolean("WarnedThirtySeconds", warnedThirtySeconds);
+        nbt.putBoolean("WarnedTenSeconds", warnedTenSeconds);
 
         NbtList entriesList = new NbtList();
 

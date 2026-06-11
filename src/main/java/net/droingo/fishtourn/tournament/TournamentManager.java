@@ -35,6 +35,13 @@ public final class TournamentManager {
         return TournamentState.get(server).submissionCounts.getOrDefault(playerUuid, 0);
     }
 
+    public static int getPlayerRemainingSubmissionCount(MinecraftServer server, UUID playerUuid) {
+        return Math.max(
+                0,
+                TournamentState.MAX_SUBMISSIONS_PER_PLAYER - getPlayerSubmissionCount(server, playerUuid)
+        );
+    }
+
     public static Optional<TournamentEntry> getPlayerBestEntry(MinecraftServer server, UUID playerUuid) {
         return Optional.ofNullable(TournamentState.get(server).bestEntries.get(playerUuid));
     }
@@ -51,8 +58,15 @@ public final class TournamentManager {
 
         state.active = true;
         state.endWorldTime = currentTime + durationTicks;
+
+        state.warnedFiveMinutes = false;
+        state.warnedOneMinute = false;
+        state.warnedThirtySeconds = false;
+        state.warnedTenSeconds = false;
+
         state.bestEntries.clear();
         state.submissionCounts.clear();
+
         state.markDirty();
 
         server.getPlayerManager().broadcast(
@@ -66,6 +80,14 @@ public final class TournamentManager {
                         .formatted(Formatting.GRAY),
                 false
         );
+
+        server.getPlayerManager().broadcast(
+                Text.literal("Each player may submit up to "
+                                + TournamentState.MAX_SUBMISSIONS_PER_PLAYER
+                                + " fish this round.")
+                        .formatted(Formatting.GOLD),
+                false
+        );
     }
 
     public static void reset(MinecraftServer server) {
@@ -73,8 +95,15 @@ public final class TournamentManager {
 
         state.active = false;
         state.endWorldTime = 0L;
+
+        state.warnedFiveMinutes = false;
+        state.warnedOneMinute = false;
+        state.warnedThirtySeconds = false;
+        state.warnedTenSeconds = false;
+
         state.bestEntries.clear();
         state.submissionCounts.clear();
+
         state.markDirty();
 
         server.getPlayerManager().broadcast(
@@ -99,7 +128,13 @@ public final class TournamentManager {
 
         UUID uuid = player.getUuid();
 
-        state.submissionCounts.merge(uuid, 1, Integer::sum);
+        int currentSubmissions = state.submissionCounts.getOrDefault(uuid, 0);
+
+        if (currentSubmissions >= TournamentState.MAX_SUBMISSIONS_PER_PLAYER) {
+            return SubmissionResult.reachedLimit();
+        }
+
+        state.submissionCounts.put(uuid, currentSubmissions + 1);
 
         TournamentEntry newEntry = new TournamentEntry(
                 uuid,
@@ -113,6 +148,7 @@ public final class TournamentManager {
         );
 
         TournamentEntry oldEntry = state.bestEntries.get(uuid);
+
         boolean newPersonalBest = oldEntry == null || newEntry.score() > oldEntry.score();
 
         if (newPersonalBest) {
@@ -121,7 +157,12 @@ public final class TournamentManager {
 
         state.markDirty();
 
-        return SubmissionResult.accepted(newPersonalBest);
+        int remainingSubmissions = Math.max(
+                0,
+                TournamentState.MAX_SUBMISSIONS_PER_PLAYER - currentSubmissions - 1
+        );
+
+        return SubmissionResult.accepted(newPersonalBest, remainingSubmissions);
     }
 
     public static List<TournamentEntry> getRankedEntries(MinecraftServer server) {
@@ -139,12 +180,12 @@ public final class TournamentManager {
         }
 
         long currentTime = server.getOverworld().getTime();
+
         return Math.max(0L, state.endWorldTime - currentTime);
     }
 
     public static String getRemainingTimeText(MinecraftServer server) {
         long remainingTicks = getRemainingTicks(server);
-
         long totalSeconds = remainingTicks / 20L;
         long minutes = totalSeconds / 60L;
         long seconds = totalSeconds % 60L;
@@ -159,9 +200,9 @@ public final class TournamentManager {
             return;
         }
 
-        long currentTime = server.getOverworld().getTime();
+        long remainingTicks = getRemainingTicks(server);
 
-        if (currentTime >= state.endWorldTime) {
+        if (remainingTicks <= 0L) {
             server.getPlayerManager().broadcast(
                     Text.literal("Time is up!")
                             .formatted(Formatting.RED, Formatting.BOLD),
@@ -169,6 +210,51 @@ public final class TournamentManager {
             );
 
             reveal(server);
+            return;
+        }
+
+        if (!state.warnedFiveMinutes && remainingTicks <= 5L * 60L * 20L) {
+            state.warnedFiveMinutes = true;
+            state.markDirty();
+
+            server.getPlayerManager().broadcast(
+                    Text.literal("5 minutes remaining in the fishing tournament!")
+                            .formatted(Formatting.YELLOW, Formatting.BOLD),
+                    false
+            );
+        }
+
+        if (!state.warnedOneMinute && remainingTicks <= 60L * 20L) {
+            state.warnedOneMinute = true;
+            state.markDirty();
+
+            server.getPlayerManager().broadcast(
+                    Text.literal("1 minute remaining! Submit your best fish soon!")
+                            .formatted(Formatting.GOLD, Formatting.BOLD),
+                    false
+            );
+        }
+
+        if (!state.warnedThirtySeconds && remainingTicks <= 30L * 20L) {
+            state.warnedThirtySeconds = true;
+            state.markDirty();
+
+            server.getPlayerManager().broadcast(
+                    Text.literal("30 seconds remaining!")
+                            .formatted(Formatting.RED, Formatting.BOLD),
+                    false
+            );
+        }
+
+        if (!state.warnedTenSeconds && remainingTicks <= 10L * 20L) {
+            state.warnedTenSeconds = true;
+            state.markDirty();
+
+            server.getPlayerManager().broadcast(
+                    Text.literal("10 seconds left! Final submissions!")
+                            .formatted(Formatting.DARK_RED, Formatting.BOLD),
+                    false
+            );
         }
     }
 
@@ -184,6 +270,12 @@ public final class TournamentManager {
 
             state.active = false;
             state.endWorldTime = 0L;
+
+            state.warnedFiveMinutes = false;
+            state.warnedOneMinute = false;
+            state.warnedThirtySeconds = false;
+            state.warnedTenSeconds = false;
+
             state.markDirty();
             return;
         }
@@ -207,25 +299,44 @@ public final class TournamentManager {
 
             server.getPlayerManager().broadcast(
                     Text.empty()
-                            .append(Text.literal("#" + rank + " ").formatted(getRankFormatting(rank), Formatting.BOLD))
-                            .append(Text.literal(entry.playerName()).formatted(Formatting.WHITE, Formatting.BOLD))
-                            .append(Text.literal(" submitted ").formatted(Formatting.GRAY))
-                            .append(Text.literal(String.valueOf(submitted)).formatted(Formatting.AQUA))
-                            .append(Text.literal(" fish").formatted(Formatting.GRAY))
-                            .append(Text.literal(" | Best: ").formatted(Formatting.DARK_GRAY))
-                            .append(Text.literal(entry.species()).formatted(getRarityFormatting(entry.rarity()), Formatting.BOLD))
-                            .append(Text.literal(" | ").formatted(Formatting.DARK_GRAY))
-                            .append(Text.literal(" | ").formatted(Formatting.DARK_GRAY))
-                            .append(Text.literal(entry.catchZone()).formatted(getZoneFormatting(entry.catchZone())))
-                            .append(Text.literal(" | ").formatted(Formatting.DARK_GRAY))
-                            .append(Text.literal(entry.rarity()).formatted(getRarityFormatting(entry.rarity())))
-                            .append(Text.literal(formatKg(entry.weightKg())).formatted(Formatting.AQUA))
-                            .append(Text.literal(" / ").formatted(Formatting.GRAY))
-                            .append(Text.literal(formatLb(entry.weightKg())).formatted(Formatting.AQUA))
-                            .append(Text.literal(" | ").formatted(Formatting.DARK_GRAY))
-                            .append(Text.literal(String.format(Locale.ROOT, "%.1f cm", entry.lengthCm())).formatted(Formatting.AQUA))
-                            .append(Text.literal(" | Score ").formatted(Formatting.GRAY))
-                            .append(Text.literal(String.valueOf(entry.score())).formatted(Formatting.GREEN, Formatting.BOLD)),
+                            .append(Text.literal("#" + rank + " ")
+                                    .formatted(getRankFormatting(rank), Formatting.BOLD))
+                            .append(Text.literal(entry.playerName())
+                                    .formatted(Formatting.WHITE, Formatting.BOLD))
+                            .append(Text.literal(" submitted ")
+                                    .formatted(Formatting.GRAY))
+                            .append(Text.literal(String.valueOf(submitted))
+                                    .formatted(Formatting.AQUA))
+                            .append(Text.literal(" fish")
+                                    .formatted(Formatting.GRAY))
+                            .append(Text.literal(" | Best: ")
+                                    .formatted(Formatting.DARK_GRAY))
+                            .append(Text.literal(entry.species())
+                                    .formatted(getRarityFormatting(entry.rarity()), Formatting.BOLD))
+                            .append(Text.literal(" | ")
+                                    .formatted(Formatting.DARK_GRAY))
+                            .append(Text.literal(entry.catchZone())
+                                    .formatted(getZoneFormatting(entry.catchZone())))
+                            .append(Text.literal(" | ")
+                                    .formatted(Formatting.DARK_GRAY))
+                            .append(Text.literal(entry.rarity())
+                                    .formatted(getRarityFormatting(entry.rarity())))
+                            .append(Text.literal(" | ")
+                                    .formatted(Formatting.DARK_GRAY))
+                            .append(Text.literal(formatKg(entry.weightKg()))
+                                    .formatted(Formatting.AQUA))
+                            .append(Text.literal(" / ")
+                                    .formatted(Formatting.GRAY))
+                            .append(Text.literal(formatLb(entry.weightKg()))
+                                    .formatted(Formatting.AQUA))
+                            .append(Text.literal(" | ")
+                                    .formatted(Formatting.DARK_GRAY))
+                            .append(Text.literal(String.format(Locale.ROOT, "%.1f cm", entry.lengthCm()))
+                                    .formatted(Formatting.AQUA))
+                            .append(Text.literal(" | Score ")
+                                    .formatted(Formatting.GRAY))
+                            .append(Text.literal(String.valueOf(entry.score()))
+                                    .formatted(Formatting.GREEN, Formatting.BOLD)),
                     false
             );
         }
@@ -240,18 +351,17 @@ public final class TournamentManager {
 
         state.active = false;
         state.endWorldTime = 0L;
+
+        state.warnedFiveMinutes = false;
+        state.warnedOneMinute = false;
+        state.warnedThirtySeconds = false;
+        state.warnedTenSeconds = false;
+
         state.markDirty();
     }
 
     private static String formatKg(double weightKg) {
         return String.format(Locale.ROOT, "%.2f kg", weightKg);
-    }
-
-    private static Formatting getZoneFormatting(String catchZone) {
-        return switch (catchZone.toLowerCase(Locale.ROOT)) {
-            case "deep zone" -> Formatting.BLUE;
-            default -> Formatting.GRAY;
-        };
     }
 
     private static String formatLb(double weightKg) {
@@ -267,6 +377,13 @@ public final class TournamentManager {
         };
     }
 
+    private static Formatting getZoneFormatting(String catchZone) {
+        return switch (catchZone.toLowerCase(Locale.ROOT)) {
+            case "deep zone" -> Formatting.BLUE;
+            default -> Formatting.GRAY;
+        };
+    }
+
     private static Formatting getRarityFormatting(String rarity) {
         return switch (rarity.toLowerCase(Locale.ROOT)) {
             case "uncommon" -> Formatting.GREEN;
@@ -276,13 +393,23 @@ public final class TournamentManager {
         };
     }
 
-    public record SubmissionResult(boolean tournamentActive, boolean accepted, boolean newPersonalBest) {
+    public record SubmissionResult(
+            boolean tournamentActive,
+            boolean accepted,
+            boolean newPersonalBest,
+            boolean limitReached,
+            int remainingSubmissions
+    ) {
         public static SubmissionResult notActive() {
-            return new SubmissionResult(false, false, false);
+            return new SubmissionResult(false, false, false, false, 0);
         }
 
-        public static SubmissionResult accepted(boolean newPersonalBest) {
-            return new SubmissionResult(true, true, newPersonalBest);
+        public static SubmissionResult reachedLimit() {
+            return new SubmissionResult(true, false, false, true, 0);
+        }
+
+        public static SubmissionResult accepted(boolean newPersonalBest, int remainingSubmissions) {
+            return new SubmissionResult(true, true, newPersonalBest, false, remainingSubmissions);
         }
     }
 }
